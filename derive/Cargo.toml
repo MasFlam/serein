@@ -1,5 +1,6 @@
 [package]
 name = "serein-derive"
+description = "Derive macros for Serein"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
