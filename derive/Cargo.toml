@@ -1,7 +1,14 @@
 [package]
 name = "serein-derive"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+license-file.workspace = true
+keywords.workspace = true
 
 [lib]
 proc-macro = true

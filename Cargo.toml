@@ -2,10 +2,27 @@
 members = [".", "./derive"]
 resolver = "3"
 
+[workspace.package]
+edition = "2024"
+authors = ["Łukasz Drukała <masflam@masflam.com>"]
+homepage = "https://github.com/masflam/serein"
+repository = "https://github.com/masflam/serein"
+readme = "README.md"
+license = "MIT"
+license-file = "LICENSE.txt"
+keywords = ["discord", "serenity", "interactions"]
+
 [package]
 name = "serein"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+license-file.workspace = true
+keywords.workspace = true
 
 [dependencies]
 async-trait = "0.1"
