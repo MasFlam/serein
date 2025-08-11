@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
-use crate::common::ChoiceKind;
+use crate::choices::ChoiceKind;
 
 pub(crate) mod choices;
 pub(crate) mod command;

@@ -14,12 +14,12 @@ pub trait CommandOption: Sized {
 		Err(Error::MissingOption)
 	}
 
-	fn create(name: String, desc: String) -> CreateCommandOption;
+	fn create(name: impl Into<String>, desc: impl Into<String>) -> CreateCommandOption;
 }
 
 macro_rules! impl_create {
 	($kind:expr) => {
-		fn create(name: String, desc: String) -> CreateCommandOption {
+		fn create(name: impl Into<String>, desc: impl Into<String>) -> CreateCommandOption {
 			CreateCommandOption::new($kind, name, desc).required(true)
 		}
 	};
@@ -236,22 +236,11 @@ impl<T: CommandOption> CommandOption for Option<T> {
 		Ok(None)
 	}
 
-	fn create(name: String, desc: String) -> CreateCommandOption {
+	fn create(name: impl Into<String>, desc: impl Into<String>) -> CreateCommandOption {
 		<T as CommandOption>::create(name, desc).required(false)
 	}
 }
 
-pub trait StringChoice: Sized {
-	fn from_value(value: &str) -> Result<Self>;
-	fn create_with_choices(name: String, desc: String) -> CreateCommandOption;
-}
-
-pub trait IntChoice: Sized {
-	fn from_value(value: i64) -> Result<Self>;
-	fn create_with_choices(name: String, desc: String) -> CreateCommandOption;
-}
-
-pub trait FloatChoice: Sized {
-	fn from_value(value: f64) -> Result<Self>;
-	fn create_with_choices(name: String, desc: String) -> CreateCommandOption;
-}
+pub trait StringChoice: CommandOption {}
+pub trait IntChoice: CommandOption {}
+pub trait FloatChoice: CommandOption {}

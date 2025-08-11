@@ -1,16 +1,55 @@
-use darling::{FromDeriveInput, ast::Data, util::Ignored};
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::DeriveInput;
+use std::collections::HashMap;
 
-use crate::common::{
-	TopLevelOpts, VariantOpts, derive_from_enum, make_top_level_creates, touch_all_variants,
+use darling::{
+	FromDeriveInput, FromField, FromVariant,
+	ast::{Data, Fields},
+	util::Ignored,
 };
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{DeriveInput, Ident, Type};
 
-#[derive(FromDeriveInput)]
+#[derive(Debug, Clone, FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype))]
 struct RootOpts {
-	pub data: Data<TopLevelOpts, Ignored>,
+	pub data: Data<VariantOpts, Ignored>,
+}
+
+#[derive(Debug, Clone, FromVariant)]
+#[darling(attributes(serein))]
+struct VariantOpts {
+	pub ident: Ident,
+	pub fields: Fields<VariantFieldOpts>,
+
+	pub name: Option<String>,
+	pub desc: String,
+
+	#[darling(default)]
+	pub names: HashMap<String, String>,
+
+	#[darling(default)]
+	pub descs: HashMap<String, String>,
+
+	#[darling(default)]
+	pub nsfw: bool,
+}
+
+impl VariantOpts {
+	pub fn name(&self) -> String {
+		self.name
+			.clone()
+			.unwrap_or_else(|| self.ident.to_string().to_lowercase())
+	}
+
+	pub fn ty(&self) -> &Type {
+		&self.fields.fields[0].ty
+	}
+}
+
+#[derive(Debug, Clone, FromField)]
+#[darling(attributes(serein))]
+struct VariantFieldOpts {
+	pub ty: Type,
 }
 
 pub fn derive(input: DeriveInput) -> TokenStream {
@@ -19,39 +58,76 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 		Err(err) => return err.write_errors(),
 	};
 
-	let variants_toplevel = root.data.take_enum().unwrap();
-	let variants: Vec<VariantOpts> = variants_toplevel.iter().cloned().map(Into::into).collect();
+	let variants = root.data.take_enum().unwrap();
 
-	let a = derive_from_enum(
-		&variants,
-		&input,
-		format_ident!("CommandTree"),
-		format_ident!("Command"),
-	);
-	let b = derive_create(
-		make_top_level_creates(&variants_toplevel, format_ident!("CommandCreate")),
-		&input,
-	);
-	let c = touch_all_variants(&input);
+	let fn_dispatch = generate_dispatch(&variants, &input);
+	let fn_create = generate_create(&variants, &input);
 
-	quote! {
-		#a
-		#b
-		#c
-	}
-}
-
-fn derive_create(creates: Vec<TokenStream>, input: &DeriveInput) -> TokenStream {
 	let ident = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	quote! {
-		impl #impl_generics ::serein::slash::CommandTreeCreate for #ident #ty_generics #where_clause {
-			fn create() -> Vec<::serenity::all::CreateCommand> {
-				vec![
-					#(#creates,)*
-				]
+		#[::serenity::async_trait]
+		impl #impl_generics ::serein::slash::CommandTree for #ident #ty_generics #where_clause {
+			#fn_dispatch
+			#fn_create
+		}
+	}
+}
+
+fn generate_dispatch(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+	let match_arms = {
+		let mut match_arms = Vec::<TokenStream>::new();
+
+		for variant in variants {
+			let name = variant.name();
+			let ty = variant.ty();
+
+			let arm = quote! {
+				#name => <#ty as ::serein::slash::Command>::dispatch(ctx, int).await
+			};
+
+			match_arms.push(arm);
+		}
+
+		match_arms
+	};
+
+	quote! {
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::CommandInteraction) -> ::serein::Result<()> {
+			let command_name = int.data.name.as_str();
+
+			match command_name {
+				#(#match_arms,)*
+				_ => ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand),
 			}
+		}
+	}
+}
+
+fn generate_create(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+	let creates = {
+		let mut creates = Vec::<TokenStream>::new();
+
+		for variant in variants {
+			let name = variant.name();
+			let ty = variant.ty();
+
+			let create = quote! {
+				<#ty as ::serein::slash::Command>::create(#name)
+			};
+
+			creates.push(create);
+		}
+
+		creates
+	};
+
+	quote! {
+		fn create() -> Vec<::serenity::all::CreateCommand> {
+			vec![
+				#(#creates,)*
+			]
 		}
 	}
 }

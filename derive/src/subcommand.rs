@@ -1,17 +1,53 @@
-use darling::{FromDeriveInput, ast::Data};
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::{DeriveInput, Ident};
+use std::collections::HashMap;
 
-use crate::common::{
-	FieldOpts, VariantOpts, derive_from_enum, derive_from_struct, make_option_creates,
-	make_sub_option_creates,
+use darling::{
+	FromDeriveInput, FromField, FromVariant,
+	ast::{Data, Fields},
 };
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{DeriveInput, Ident, Type};
+
+use crate::common::FieldOpts;
 
 #[derive(FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype, struct_named, struct_unit))]
 struct RootOpts {
 	pub data: Data<VariantOpts, FieldOpts>,
+}
+
+#[derive(Debug, Clone, FromVariant)]
+#[darling(attributes(serein))]
+struct VariantOpts {
+	pub ident: Ident,
+	pub fields: Fields<VariantFieldOpts>,
+
+	pub name: Option<String>,
+	pub desc: String,
+
+	#[darling(default)]
+	pub names: HashMap<String, String>,
+
+	#[darling(default)]
+	pub descs: HashMap<String, String>,
+}
+
+impl VariantOpts {
+	pub fn name(&self) -> String {
+		self.name
+			.clone()
+			.unwrap_or_else(|| self.ident.to_string().to_lowercase())
+	}
+
+	pub fn ty(&self) -> &Type {
+		&self.fields.fields[0].ty
+	}
+}
+
+#[derive(Debug, Clone, FromField)]
+#[darling(attributes(serein))]
+struct VariantFieldOpts {
+	pub ty: Type,
 }
 
 pub fn derive(input: DeriveInput) -> TokenStream {
@@ -20,61 +56,232 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 		Err(err) => return err.write_errors(),
 	};
 
-	match root.data {
+	let (fn_dispatch, fn_create) = match root.data {
 		Data::Enum(variants) => {
-			let a = derive_from_enum(
-				&variants,
-				&input,
-				format_ident!("SubCommand"),
-				format_ident!("SubSubCommand"),
-			);
-			let b = derive_create(
-				make_sub_option_creates(&variants, format_ident!("SubSubCommandCreate")),
-				format_ident!("SubCommandGroup"),
-				&input,
-			);
+			let fn_dispatch = generate_dispatch_from_enum(&variants, &input);
+			let fn_create = generate_create_from_enum(&variants, &input);
 
-			quote! {
-				#a
-				#b
-			}
+			(fn_dispatch, fn_create)
 		}
 		Data::Struct(fields) => {
-			let a = derive_from_struct(&fields.fields, &input, format_ident!("SubCommand"));
-			let b = derive_create(
-				make_option_creates(&fields.fields),
-				format_ident!("SubCommand"),
-				&input,
-			);
+			let fn_dispatch = generate_dispatch_from_struct(&fields.fields, &input);
+			let fn_create = generate_create_from_struct(&fields.fields, &input);
 
-			quote! {
-				#a
-				#b
+			(fn_dispatch, fn_create)
+		}
+	};
+
+	let ident = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+	quote! {
+		#[::serenity::async_trait]
+		impl #impl_generics ::serein::slash::SubCommand for #ident #ty_generics #where_clause {
+			#fn_dispatch
+			#fn_create
+		}
+	}
+}
+
+fn generate_dispatch_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+	let match_arms = {
+		let mut match_arms = Vec::<TokenStream>::new();
+
+		for variant in variants {
+			let name = variant.name();
+			let ty = variant.ty();
+
+			let arm = quote! {
+				#name => <#ty as ::serein::slash::SubSubCommand>::dispatch(ctx, int).await
+			};
+
+			match_arms.push(arm);
+		}
+
+		match_arms
+	};
+
+	quote! {
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
+			if int.data.options.len() != 1 {
+				return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+			}
+
+			let opt = &int.data.options[0];
+
+			match &opt.value {
+				::serenity::all::CommandDataOptionValue::SubCommandGroup(sub_opts) => {
+					if sub_opts.len() != {
+						return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+					}
+
+					let sub_opt = &sub_opts[0];
+
+					match sub_opt.name.as_str() {
+						#(#match_arms,)*
+						_ => ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand),
+					}
+				},
+				_ => {
+					::serein::Result::Err(::serein::error::Error::UnrecognizedCommand)
+				}
 			}
 		}
 	}
 }
 
-fn derive_create(
-	creates: Vec<TokenStream>,
-	option_type: Ident,
-	input: &DeriveInput,
-) -> TokenStream {
-	let ident = &input.ident;
-	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+fn generate_dispatch_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
+	let self_fields = {
+		let mut self_fields = Vec::<TokenStream>::new();
+
+		for field in fields {
+			let ident = field.ident.as_ref().unwrap();
+			let name = field.name();
+			let ty = &field.ty;
+
+			let self_field = quote! {
+				#ident: match sub_opts.iter().filter(|opt| opt.name == #name).last() {
+					Some(opt) => {
+						<#ty as ::serein::options::CommandOption>::try_from_resolved_value(opt.value.clone())?
+					}
+					None => {
+						<#ty as ::serein::options::CommandOption>::try_from_missing_value()?
+					}
+				}
+			};
+
+			self_fields.push(self_field);
+		}
+
+		self_fields
+	};
 
 	quote! {
-		impl #impl_generics ::serein::slash::SubCommandCreate for #ident #ty_generics #where_clause {
-			fn create(name: &str) -> ::serenity::all::CreateCommandOption {
-				::serenity::all::CreateCommandOption::new(
-					::serenity::all::CommandOptionType::#option_type,
-					name,
-					""
-				)
-				.set_sub_options(vec![
-					#(#creates,)*
-				])
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
+			if int.data.options.len() != 1 {
+				return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
 			}
+
+			let opt = &int.data.options[0];
+
+			match &opt.value {
+				::serenity::all::CommandDataOptionValue::SubCommandGroup(sub_opts) => {
+					let obj = Self {
+						#(#self_fields)*
+					};
+
+					obj.handle(ctx, int).await
+				},
+				_ => {
+					::serein::Result::Err(::serein::error::Error::UnrecognizedCommand)
+				}
+			}
+		}
+	}
+}
+
+fn generate_create_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+	let sub_opt_creates = {
+		let mut sub_opt_creates = Vec::<TokenStream>::new();
+
+		for variant in variants {
+			let name = variant.name();
+			let ty = variant.ty();
+			let desc = &variant.desc;
+
+			let dot_names: Vec<TokenStream> = variant
+				.names
+				.iter()
+				.map(|(locale, string)| {
+					let locale = locale.replace('_', "-");
+					quote! { .name_localized(#locale, #string) }
+				})
+				.collect();
+
+			let dot_descs: Vec<TokenStream> = variant
+				.descs
+				.iter()
+				.map(|(locale, string)| {
+					let locale = locale.replace('_', "-");
+					quote! { .description_localized(#locale, #string) }
+				})
+				.collect();
+
+			let create = quote! {
+				<#ty as ::serein::slash::SubSubCommand>::create(#name, #desc)
+					#(#dot_names)*
+					#(#dot_descs)*
+			};
+
+			sub_opt_creates.push(create);
+		}
+
+		sub_opt_creates
+	};
+
+	quote! {
+		fn create(name: impl Into<String>, desc: impl Into<String>) -> ::serenity::all::CreateCommandOption {
+			::serenity::all::CreateCommandOption::new(
+				::serenity::all::CommandOptionType::SubCommandGroup,
+				name,
+				desc,
+			)
+			.set_sub_options(vec![
+				#(#sub_opt_creates,)*
+			])
+		}
+	}
+}
+
+fn generate_create_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
+	let sub_opt_creates = {
+		let mut sub_opt_creates = Vec::<TokenStream>::new();
+
+		for field in fields {
+			let name = field.name();
+			let ty = &field.ty;
+			let desc = &field.desc;
+
+			let dot_names: Vec<TokenStream> = field
+				.names
+				.iter()
+				.map(|(locale, string)| {
+					let locale = locale.replace('_', "-");
+					quote! { .name_localized(#locale, #string) }
+				})
+				.collect();
+
+			let dot_descs: Vec<TokenStream> = field
+				.descs
+				.iter()
+				.map(|(locale, string)| {
+					let locale = locale.replace('_', "-");
+					quote! { .description_localized(#locale, #string) }
+				})
+				.collect();
+
+			let create = quote! {
+				<#ty as ::serein::options::CommandOption>::create(#name, #desc)
+					#(#dot_names)*
+					#(#dot_descs)*
+			};
+
+			sub_opt_creates.push(create);
+		}
+
+		sub_opt_creates
+	};
+
+	quote! {
+		fn create(name: impl Into<String>, desc: impl Into<String>) -> ::serenity::all::CreateCommandOption {
+			::serenity::all::CreateCommandOption::new(
+				::serenity::all::CommandOptionType::SubCommand,
+				name,
+				desc,
+			)
+			.set_sub_options(vec![
+				#(#sub_opt_creates,)*
+			])
 		}
 	}
 }

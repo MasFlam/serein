@@ -7,51 +7,39 @@ pub use serein_derive::{Command, CommandTree, SubCommand, SubSubCommand};
 
 #[async_trait]
 pub trait CommandTree {
-	async fn dispatch(ctx: Context, interaction: CommandInteraction) -> Result<()>;
-}
-
-pub trait CommandTreeCreate {
+	async fn dispatch(ctx: Context, int: CommandInteraction) -> Result<()>;
 	fn create() -> Vec<CreateCommand>;
 }
 
 #[async_trait]
 pub trait Command {
-	async fn dispatch(ctx: Context, interaction: CommandInteraction) -> Result<()>;
-}
-
-pub trait CommandCreate {
-	fn create(name: &str) -> CreateCommand;
+	async fn dispatch(ctx: Context, int: CommandInteraction) -> Result<()>;
+	fn create(name: impl Into<String>) -> CreateCommand;
 }
 
 #[async_trait]
 pub trait SubCommand {
-	async fn dispatch(ctx: Context, interaction: CommandInteraction) -> Result<()>;
-}
-
-pub trait SubCommandCreate {
-	fn create(name: &str) -> CreateCommandOption;
+	async fn dispatch(ctx: Context, int: CommandInteraction) -> Result<()>;
+	fn create(name: impl Into<String>, desc: impl Into<String>) -> CreateCommandOption;
 }
 
 #[async_trait]
 pub trait SubSubCommand {
-	async fn dispatch(ctx: Context, interaction: CommandInteraction) -> Result<()>;
-}
-
-pub trait SubSubCommandCreate {
-	fn create(name: &str) -> CreateCommandOption;
+	async fn dispatch(ctx: Context, int: CommandInteraction) -> Result<()>;
+	fn create(name: impl Into<String>, desc: impl Into<String>) -> CreateCommandOption;
 }
 
 #[async_trait]
-pub trait Handler {
-	async fn handle(&self, ctx: Context, interaction: CommandInteraction) -> Result<()>;
+pub trait CommandHandler {
+	async fn handle(&self, ctx: Context, int: CommandInteraction) -> Result<()>;
 }
 
 #[allow(unused)]
 mod shite {
 	use serein_derive::{Command, CommandTree};
-	use serenity::all::{CommandInteraction, Context, ResolvedValue};
+	use serenity::all::{CommandInteraction, CommandOptionType, Context, ResolvedValue};
 
-	use crate::slash::Handler;
+	use crate::slash::CommandHandler;
 
 	#[derive(CommandTree)]
 	enum Tree {
@@ -71,13 +59,19 @@ mod shite {
 	}
 
 	#[serenity::async_trait]
-	impl Handler for CmdHello {
+	impl CommandHandler for CmdHello {
 		async fn handle(
 			&self,
 			ctx: Context,
 			interaction: CommandInteraction,
 		) -> serein::Result<()> {
 			let x = Some(5);
+
+			if interaction.data.options.len() != 1 {
+				return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+			}
+
+			let opt = &interaction.data.options[0];
 
 			todo!()
 		}
