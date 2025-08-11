@@ -1,53 +1,14 @@
-use std::collections::HashMap;
-
-use darling::{
-	FromDeriveInput, FromField, FromVariant,
-	ast::{Data, Fields},
-};
+use darling::{FromDeriveInput, ast::Data};
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Ident, Type};
+use syn::DeriveInput;
 
-use crate::common::FieldOpts;
+use crate::common::{FieldOpts, VariantOpts};
 
 #[derive(FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype, struct_named, struct_unit))]
 struct RootOpts {
 	pub data: Data<VariantOpts, FieldOpts>,
-}
-
-#[derive(Debug, Clone, FromVariant)]
-#[darling(attributes(serein))]
-struct VariantOpts {
-	pub ident: Ident,
-	pub fields: Fields<VariantFieldOpts>,
-
-	pub name: Option<String>,
-	pub desc: String,
-
-	#[darling(default)]
-	pub names: HashMap<String, String>,
-
-	#[darling(default)]
-	pub descs: HashMap<String, String>,
-}
-
-impl VariantOpts {
-	pub fn name(&self) -> String {
-		self.name
-			.clone()
-			.unwrap_or_else(|| self.ident.to_string().to_lowercase())
-	}
-
-	pub fn ty(&self) -> &Type {
-		&self.fields.fields[0].ty
-	}
-}
-
-#[derive(Debug, Clone, FromField)]
-#[darling(attributes(serein))]
-struct VariantFieldOpts {
-	pub ty: Type,
 }
 
 pub fn derive(input: DeriveInput) -> TokenStream {
@@ -192,19 +153,13 @@ fn generate_create_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> T
 			let dot_names: Vec<TokenStream> = variant
 				.names
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .name_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
 				.collect();
 
 			let dot_descs: Vec<TokenStream> = variant
 				.descs
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .description_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
 				.collect();
 
 			let create = quote! {
@@ -245,19 +200,13 @@ fn generate_create_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> Tok
 			let dot_names: Vec<TokenStream> = field
 				.names
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .name_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
 				.collect();
 
 			let dot_descs: Vec<TokenStream> = field
 				.descs
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .description_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
 				.collect();
 
 			let create = quote! {

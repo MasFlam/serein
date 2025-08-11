@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use darling::{FromField, FromMeta, util::Flag};
+use darling::{FromField, FromMeta, FromVariant, ast::Fields, util::Flag};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Ident, Type};
@@ -80,4 +80,60 @@ impl FieldOpts {
 pub enum IntOrFloat {
 	Int(i64),
 	Float(f64),
+}
+
+#[derive(Debug, Clone, FromVariant)]
+#[darling(attributes(serein), map = Self::after)]
+pub struct VariantOpts {
+	pub ident: Ident,
+	pub fields: Fields<VariantFieldOpts>,
+
+	pub name: Option<String>,
+	pub desc: String,
+
+	#[darling(default)]
+	pub names: HashMap<String, String>,
+
+	#[darling(default)]
+	pub descs: HashMap<String, String>,
+}
+
+impl VariantOpts {
+	fn after(mut self) -> Self {
+		self.names = self
+			.names
+			.into_iter()
+			.map(|(locale, string)| {
+				let locale = locale.replace('_', "-");
+				(locale, string)
+			})
+			.collect();
+
+		self.descs = self
+			.descs
+			.into_iter()
+			.map(|(locale, string)| {
+				let locale = locale.replace('_', "-");
+				(locale, string)
+			})
+			.collect();
+
+		self
+	}
+
+	pub fn name(&self) -> String {
+		self.name
+			.clone()
+			.unwrap_or_else(|| self.ident.to_string().to_lowercase())
+	}
+
+	pub fn ty(&self) -> &Type {
+		&self.fields.fields[0].ty
+	}
+}
+
+#[derive(Debug, Clone, FromField)]
+#[darling(attributes(serein))]
+pub struct VariantFieldOpts {
+	pub ty: Type,
 }

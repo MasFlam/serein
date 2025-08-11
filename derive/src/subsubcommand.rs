@@ -106,19 +106,13 @@ fn generate_create(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
 			let dot_names: Vec<TokenStream> = field
 				.names
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .name_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
 				.collect();
 
 			let dot_descs: Vec<TokenStream> = field
 				.descs
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! { .description_localized(#locale, #string) }
-				})
+				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
 				.collect();
 
 			let create = quote! {

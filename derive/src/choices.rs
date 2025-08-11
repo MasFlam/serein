@@ -53,7 +53,7 @@ struct RootOpts {
 }
 
 #[derive(FromVariant)]
-#[darling(attributes(serein))]
+#[darling(attributes(serein), map = Self::after)]
 struct VariantOpts {
 	pub ident: Ident,
 	pub discriminant: Option<Expr>,
@@ -66,6 +66,19 @@ struct VariantOpts {
 }
 
 impl VariantOpts {
+	fn after(mut self) -> Self {
+		self.names = self
+			.names
+			.into_iter()
+			.map(|(locale, string)| {
+				let locale = locale.replace('_', "-");
+				(locale, string)
+			})
+			.collect();
+
+		self
+	}
+
 	pub fn name(&self) -> String {
 		self.name
 			.clone()
@@ -201,12 +214,7 @@ fn generate_create(
 			let localizations: Vec<TokenStream> = variant
 				.names
 				.iter()
-				.map(|(locale, string)| {
-					let locale = locale.replace('_', "-");
-					quote! {
-						(#locale, #string)
-					}
-				})
+				.map(|(locale, string)| quote! { (#locale, #string) })
 				.collect();
 
 			let dot_choice = quote! {
