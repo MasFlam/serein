@@ -43,13 +43,23 @@ fn generate_dispatch(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
 			let name = field.name();
 			let ty = &field.ty;
 
+			let on_missing = if field.default.is_present() {
+				quote! {
+					<#ty as Default>::default()
+				}
+			} else {
+				quote! {
+					<#ty as ::serein::options::CommandOption>::try_from_missing_value()?
+				}
+			};
+
 			let self_field = quote! {
 				#ident: match sub_sub_opts.iter().filter(|opt| opt.name == #name).last() {
 					Some(opt) => {
 						<#ty as ::serein::options::CommandOption>::try_from_resolved_value(opt.value.clone())?
 					}
 					None => {
-						<#ty as ::serein::options::CommandOption>::try_from_missing_value()?
+						#on_missing
 					}
 				}
 			};
@@ -103,6 +113,12 @@ fn generate_create(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
 			let ty = &field.ty;
 			let desc = &field.desc;
 
+			let dot_required = if field.default.is_present() {
+				quote! { .required(false) }
+			} else {
+				quote! {}
+			};
+
 			let dot_names: Vec<TokenStream> = field
 				.names
 				.iter()
@@ -119,6 +135,7 @@ fn generate_create(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
 				<#ty as ::serein::options::CommandOption>::create(#name, #desc)
 					#(#dot_names)*
 					#(#dot_descs)*
+					#dot_required
 			};
 
 			sub_opt_creates.push(create);

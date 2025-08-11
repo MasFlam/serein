@@ -93,13 +93,24 @@ fn generate_dispatch_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> T
 			let ident = field.ident.as_ref().unwrap();
 			let name = field.name();
 			let ty = &field.ty;
+
+			let on_missing = if field.default.is_present() {
+				quote! {
+					<#ty as Default>::default()
+				}
+			} else {
+				quote! {
+					<#ty as ::serein::options::CommandOption>::try_from_missing_value()?
+				}
+			};
+
 			let self_field = quote! {
 				#ident: match opts.iter().filter(|opt| opt.name == #name).last() {
 					Some(opt) => {
 						<#ty as ::serein::options::CommandOption>::try_from_resolved_value(opt.value.clone())?
 					}
 					None => {
-						<#ty as ::serein::options::CommandOption>::try_from_missing_value()?
+						#on_missing
 					}
 				}
 			};
@@ -176,6 +187,12 @@ fn generate_create_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> Tok
 			let ty = &field.ty;
 			let desc = &field.desc;
 
+			let dot_required = if field.default.is_present() {
+				quote! { .required(false) }
+			} else {
+				quote! {}
+			};
+
 			let dot_names: Vec<TokenStream> = field
 				.names
 				.iter()
@@ -192,6 +209,7 @@ fn generate_create_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> Tok
 				<#ty as ::serein::options::CommandOption>::create(#name, #desc)
 					#(#dot_names)*
 					#(#dot_descs)*
+					#dot_required
 			};
 
 			opt_creates.push(create);
