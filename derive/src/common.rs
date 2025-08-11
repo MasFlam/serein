@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Ident, Type};
 
-// TODO: Channel Types, Min/Max Value/Length
+// TODO: Channel type, Autocomplete
 #[derive(Debug, Clone, FromField)]
 #[darling(attributes(serein), map = Self::after)]
 pub struct FieldOpts {
@@ -59,20 +59,6 @@ impl FieldOpts {
 		self.name
 			.clone()
 			.unwrap_or_else(|| self.ident.as_ref().unwrap().to_string().to_lowercase())
-	}
-
-	pub fn min_value(&self) -> Option<TokenStream> {
-		self.min_value.as_ref().map(|value| match value {
-			IntOrFloat::Int(value) => quote!(#value),
-			IntOrFloat::Float(value) => quote!(#value),
-		})
-	}
-
-	pub fn max_value(&self) -> Option<TokenStream> {
-		self.max_value.as_ref().map(|value| match value {
-			IntOrFloat::Int(value) => quote!(#value),
-			IntOrFloat::Float(value) => quote!(#value),
-		})
 	}
 }
 
@@ -164,11 +150,37 @@ pub fn generate_opt_creates(fields: &[FieldOpts]) -> Vec<TokenStream> {
 			.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
 			.collect();
 
+		let dot_min_value = match field.min_value {
+			Some(IntOrFloat::Int(value)) => quote! { .min_int_value(#value) },
+			Some(IntOrFloat::Float(value)) => quote! { .min_number_value(#value) },
+			None => quote! {},
+		};
+
+		let dot_max_value = match field.max_value {
+			Some(IntOrFloat::Int(value)) => quote! { .max_int_value(#value) },
+			Some(IntOrFloat::Float(value)) => quote! { .max_number_value(#value) },
+			None => quote! {},
+		};
+
+		let dot_min_length = match field.min_length {
+			Some(value) => quote! { .min_length(#value) },
+			None => quote! {},
+		};
+
+		let dot_max_length = match field.max_length {
+			Some(value) => quote! { .max_length(#value) },
+			None => quote! {},
+		};
+
 		let create = quote! {
 			<#ty as ::serein::options::CommandOption>::create(#name, #desc)
 				#(#dot_names)*
 				#(#dot_descs)*
 				#dot_required
+				#dot_min_value
+				#dot_max_value
+				#dot_min_length
+				#dot_max_length
 		};
 
 		sub_opt_creates.push(create);
