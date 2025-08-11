@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-use crate::common::{FieldOpts, VariantOpts};
+use crate::common::{FieldOpts, VariantOpts, generate_opt_creates};
 
 #[derive(Debug, Clone, FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype, struct_named, struct_unit))]
@@ -19,14 +19,14 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 
 	let (fn_dispatch, fn_create) = match root.data {
 		Data::Enum(variants) => {
-			let fn_dispatch = generate_dispatch_from_enum(&variants, &input);
-			let fn_create = generate_create_from_enum(&variants, &input);
+			let fn_dispatch = generate_dispatch_from_enum(&variants);
+			let fn_create = generate_create_from_enum(&variants);
 
 			(fn_dispatch, fn_create)
 		}
 		Data::Struct(fields) => {
-			let fn_dispatch = generate_dispatch_from_struct(&fields.fields, &input);
-			let fn_create = generate_create_from_struct(&fields.fields, &input);
+			let fn_dispatch = generate_dispatch_from_struct(&fields.fields);
+			let fn_create = generate_create_from_struct(&fields.fields);
 
 			(fn_dispatch, fn_create)
 		}
@@ -44,7 +44,7 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 	}
 }
 
-fn generate_dispatch_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+fn generate_dispatch_from_enum(variants: &[VariantOpts]) -> TokenStream {
 	let match_arms = {
 		let mut match_arms = Vec::<TokenStream>::new();
 
@@ -85,7 +85,7 @@ fn generate_dispatch_from_enum(variants: &[VariantOpts], input: &DeriveInput) ->
 	}
 }
 
-fn generate_dispatch_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
+fn generate_dispatch_from_struct(fields: &[FieldOpts]) -> TokenStream {
 	let self_fields = {
 		let mut self_fields = Vec::<TokenStream>::new();
 
@@ -134,7 +134,7 @@ fn generate_dispatch_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> T
 	}
 }
 
-fn generate_create_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+fn generate_create_from_enum(variants: &[VariantOpts]) -> TokenStream {
 	let opt_creates = {
 		let mut opt_creates = Vec::<TokenStream>::new();
 
@@ -178,45 +178,8 @@ fn generate_create_from_enum(variants: &[VariantOpts], input: &DeriveInput) -> T
 	}
 }
 
-fn generate_create_from_struct(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
-	let opt_creates = {
-		let mut opt_creates = Vec::<TokenStream>::new();
-
-		for field in fields {
-			let name = field.name();
-			let ty = &field.ty;
-			let desc = &field.desc;
-
-			let dot_required = if field.default.is_present() {
-				quote! { .required(false) }
-			} else {
-				quote! {}
-			};
-
-			let dot_names: Vec<TokenStream> = field
-				.names
-				.iter()
-				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
-				.collect();
-
-			let dot_descs: Vec<TokenStream> = field
-				.descs
-				.iter()
-				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
-				.collect();
-
-			let create = quote! {
-				<#ty as ::serein::options::CommandOption>::create(#name, #desc)
-					#(#dot_names)*
-					#(#dot_descs)*
-					#dot_required
-			};
-
-			opt_creates.push(create);
-		}
-
-		opt_creates
-	};
+fn generate_create_from_struct(fields: &[FieldOpts]) -> TokenStream {
+	let opt_creates = generate_opt_creates(fields);
 
 	quote! {
 		fn create(name: impl Into<String>) -> ::serenity::all::CreateCommand {

@@ -137,3 +137,59 @@ impl VariantOpts {
 pub struct VariantFieldOpts {
 	pub ty: Type,
 }
+
+pub fn generate_opt_creates(fields: &[FieldOpts]) -> Vec<TokenStream> {
+	let mut sub_opt_creates = Vec::<TokenStream>::new();
+
+	for field in fields {
+		let name = field.name();
+		let ty = &field.ty;
+		let desc = &field.desc;
+
+		let dot_required = if field.default.is_present() {
+			quote! { .required(false) }
+		} else {
+			quote! {}
+		};
+
+		let dot_names: Vec<TokenStream> = field
+			.names
+			.iter()
+			.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
+			.collect();
+
+		let dot_descs: Vec<TokenStream> = field
+			.descs
+			.iter()
+			.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
+			.collect();
+
+		let create = quote! {
+			<#ty as ::serein::options::CommandOption>::create(#name, #desc)
+				#(#dot_names)*
+				#(#dot_descs)*
+				#dot_required
+		};
+
+		sub_opt_creates.push(create);
+	}
+
+	sub_opt_creates
+}
+
+pub fn generate_sub_or_subsub_create_from_struct(fields: &[FieldOpts]) -> TokenStream {
+	let sub_opt_creates = generate_opt_creates(fields);
+
+	quote! {
+		fn create(name: impl Into<String>, desc: impl Into<String>) -> ::serenity::all::CreateCommandOption {
+			::serenity::all::CreateCommandOption::new(
+				::serenity::all::CommandOptionType::SubCommand,
+				name,
+				desc,
+			)
+			.set_sub_options(vec![
+				#(#sub_opt_creates,)*
+			])
+		}
+	}
+}

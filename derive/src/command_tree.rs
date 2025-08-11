@@ -60,8 +60,8 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 
 	let variants = root.data.take_enum().unwrap();
 
-	let fn_dispatch = generate_dispatch(&variants, &input);
-	let fn_create = generate_create(&variants, &input);
+	let fn_dispatch = generate_dispatch(&variants);
+	let fn_create = generate_create(&variants);
 
 	let ident = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -75,7 +75,7 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 	}
 }
 
-fn generate_dispatch(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+fn generate_dispatch(variants: &[VariantOpts]) -> TokenStream {
 	let match_arms = {
 		let mut match_arms = Vec::<TokenStream>::new();
 
@@ -105,7 +105,7 @@ fn generate_dispatch(variants: &[VariantOpts], input: &DeriveInput) -> TokenStre
 	}
 }
 
-fn generate_create(variants: &[VariantOpts], input: &DeriveInput) -> TokenStream {
+fn generate_create(variants: &[VariantOpts]) -> TokenStream {
 	let creates = {
 		let mut creates = Vec::<TokenStream>::new();
 

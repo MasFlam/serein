@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-use crate::common::FieldOpts;
+use crate::common::{FieldOpts, generate_sub_or_subsub_create_from_struct};
 
 #[derive(FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype, struct_named, struct_unit))]
@@ -19,8 +19,8 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 
 	let fields = root.data.take_struct().unwrap();
 
-	let fn_dispatch = generate_dispatch(&fields.fields, &input);
-	let fn_create = generate_create(&fields.fields, &input);
+	let fn_dispatch = generate_dispatch(&fields.fields);
+	let fn_create = generate_create(&fields.fields);
 
 	let ident = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -34,7 +34,7 @@ pub fn derive(input: DeriveInput) -> TokenStream {
 	}
 }
 
-fn generate_dispatch(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
+fn generate_dispatch(fields: &[FieldOpts]) -> TokenStream {
 	let self_fields = {
 		let mut self_fields = Vec::<TokenStream>::new();
 
@@ -104,56 +104,6 @@ fn generate_dispatch(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
 	}
 }
 
-fn generate_create(fields: &[FieldOpts], input: &DeriveInput) -> TokenStream {
-	let sub_opt_creates = {
-		let mut sub_opt_creates = Vec::<TokenStream>::new();
-
-		for field in fields {
-			let name = field.name();
-			let ty = &field.ty;
-			let desc = &field.desc;
-
-			let dot_required = if field.default.is_present() {
-				quote! { .required(false) }
-			} else {
-				quote! {}
-			};
-
-			let dot_names: Vec<TokenStream> = field
-				.names
-				.iter()
-				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
-				.collect();
-
-			let dot_descs: Vec<TokenStream> = field
-				.descs
-				.iter()
-				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
-				.collect();
-
-			let create = quote! {
-				<#ty as ::serein::options::CommandOption>::create(#name, #desc)
-					#(#dot_names)*
-					#(#dot_descs)*
-					#dot_required
-			};
-
-			sub_opt_creates.push(create);
-		}
-
-		sub_opt_creates
-	};
-
-	quote! {
-		fn create(name: impl Into<String>, desc: impl Into<String>) -> ::serenity::all::CreateCommandOption {
-			::serenity::all::CreateCommandOption::new(
-				::serenity::all::CommandOptionType::SubCommand,
-				name,
-				desc,
-			)
-			.set_sub_options(vec![
-				#(#sub_opt_creates,)*
-			])
-		}
-	}
+fn generate_create(fields: &[FieldOpts]) -> TokenStream {
+	generate_sub_or_subsub_create_from_struct(fields)
 }
