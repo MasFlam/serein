@@ -20,13 +20,6 @@ impl ChoiceKind {
 			Self::Float => quote!(FloatChoice),
 		}
 	}
-	pub fn value_type(&self) -> TokenStream {
-		match self {
-			Self::String => quote!(&str),
-			Self::Int => quote!(i64),
-			Self::Float => quote!(f64),
-		}
-	}
 	pub fn resolved_value_variant(&self) -> TokenStream {
 		match self {
 			Self::String => quote!(String),
@@ -133,12 +126,12 @@ pub fn derive(input: DeriveInput, kind: ChoiceKind) -> TokenStream {
 
 	let variants = root.data.take_enum().unwrap();
 
-	let fn_from_resolved_value = match generate_from_resolved_value(&variants, &input, kind) {
+	let fn_from_resolved_value = match generate_from_resolved_value(&variants, kind) {
 		Ok(f) => f,
 		Err(err) => return err,
 	};
 
-	let fn_create = match generate_create(&variants, &input, kind) {
+	let fn_create = match generate_create(&variants, kind) {
 		Ok(f) => f,
 		Err(err) => return err,
 	};
@@ -159,7 +152,6 @@ pub fn derive(input: DeriveInput, kind: ChoiceKind) -> TokenStream {
 
 fn generate_from_resolved_value(
 	variants: &[VariantOpts],
-	input: &DeriveInput,
 	kind: ChoiceKind,
 ) -> Result<TokenStream, TokenStream> {
 	let resolved_value_variant = kind.resolved_value_variant();
@@ -195,11 +187,7 @@ fn generate_from_resolved_value(
 	})
 }
 
-fn generate_create(
-	variants: &[VariantOpts],
-	input: &DeriveInput,
-	kind: ChoiceKind,
-) -> Result<TokenStream, TokenStream> {
+fn generate_create(variants: &[VariantOpts], kind: ChoiceKind) -> Result<TokenStream, TokenStream> {
 	let option_type_variant = kind.option_type_variant();
 
 	let dot_choices = {
