@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use darling::{
 	FromDeriveInput, FromField, FromVariant,
 	ast::{Data, Fields},
-	util::Ignored,
+	util::{Flag, Ignored},
 };
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -16,7 +16,7 @@ struct RootOpts {
 }
 
 #[derive(Debug, Clone, FromVariant)]
-#[darling(attributes(serein))]
+#[darling(attributes(serein), map = Self::after)]
 struct VariantOpts {
 	pub ident: Ident,
 	pub fields: Fields<VariantFieldOpts>,
@@ -31,10 +31,32 @@ struct VariantOpts {
 	pub descs: HashMap<String, String>,
 
 	#[darling(default)]
-	pub nsfw: bool,
+	pub nsfw: Flag,
 }
 
 impl VariantOpts {
+	fn after(mut self) -> Self {
+		self.names = self
+			.names
+			.into_iter()
+			.map(|(locale, string)| {
+				let locale = locale.replace('_', "-");
+				(locale, string)
+			})
+			.collect();
+
+		self.descs = self
+			.descs
+			.into_iter()
+			.map(|(locale, string)| {
+				let locale = locale.replace('_', "-");
+				(locale, string)
+			})
+			.collect();
+
+		self
+	}
+
 	pub fn name(&self) -> String {
 		self.name
 			.clone()
@@ -112,9 +134,32 @@ fn generate_create(variants: &[VariantOpts]) -> TokenStream {
 		for variant in variants {
 			let name = variant.name();
 			let ty = variant.ty();
+			let desc = &variant.desc;
+
+			let dot_names: Vec<TokenStream> = variant
+				.names
+				.iter()
+				.map(|(locale, string)| quote! { .name_localized(#locale, #string) })
+				.collect();
+
+			let dot_descs: Vec<TokenStream> = variant
+				.descs
+				.iter()
+				.map(|(locale, string)| quote! { .description_localized(#locale, #string) })
+				.collect();
+
+			let dot_nsfw = if variant.nsfw.is_present() {
+				quote! { .nsfw(true) }
+			} else {
+				quote! {}
+			};
 
 			let create = quote! {
 				<#ty as ::serein::slash::Command>::create(#name)
+					.description(#desc)
+					#(#dot_names)*
+					#(#dot_descs)*
+					#dot_nsfw
 			};
 
 			creates.push(create);
