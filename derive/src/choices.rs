@@ -179,7 +179,7 @@ fn generate_from_resolved_value(
 				::serenity::all::ResolvedValue::#resolved_value_variant(value) => {
 					match value {
 						#(#match_arms,)*
-						_ => Err(::serein::error::Error::BadOptionValue),
+						_ => Err(::serein::Error::BadOptionValue),
 					}
 				}
 			}

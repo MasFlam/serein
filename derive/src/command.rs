@@ -65,7 +65,7 @@ fn generate_dispatch_from_enum(variants: &[VariantOpts]) -> TokenStream {
 	quote! {
 		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
 			if int.data.options.len() != 1 {
-				return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+				return ::serein::Result::Err(::serein::Error::UnrecognizedCommand);
 			}
 
 			let opt = &int.data.options[0];
@@ -74,11 +74,11 @@ fn generate_dispatch_from_enum(variants: &[VariantOpts]) -> TokenStream {
 				::serenity::all::CommandOptionType::SubCommand | ::serenity::all::CommandOptionType::SubCommandGroup => {
 					match opt.name.as_str() {
 						#(#match_arms,)*
-						_ => ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand),
+						_ => ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
 					}
 				},
 				_ => {
-					::serein::Result::Err(::serein::error::Error::UnrecognizedCommand)
+					::serein::Result::Err(::serein::Error::UnrecognizedCommand)
 				}
 			}
 		}

@@ -73,7 +73,7 @@ fn generate_dispatch(fields: &[FieldOpts]) -> TokenStream {
 	quote! {
 		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
 			if int.data.options.len() != 1 {
-				return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+				return ::serein::Result::Err(::serein::Error::UnrecognizedCommand);
 			}
 
 			let opt = &int.data.options[0];
@@ -81,7 +81,7 @@ fn generate_dispatch(fields: &[FieldOpts]) -> TokenStream {
 			match &opt.value {
 				::serenity::all::CommandDataOptionValue::SubCommandGroup(sub_opts) => {
 					if sub_opts.len() != 1 {
-						return ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand);
+						return ::serein::Result::Err(::serein::Error::UnrecognizedCommand);
 					}
 
 					let sub_opt = &sub_opts[0];
@@ -97,7 +97,7 @@ fn generate_dispatch(fields: &[FieldOpts]) -> TokenStream {
 					}
 				},
 				_ => {
-					::serein::Result::Err(::serein::error::Error::UnrecognizedCommand)
+					::serein::Result::Err(::serein::Error::UnrecognizedCommand)
 				}
 			}
 		}

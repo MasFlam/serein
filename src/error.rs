@@ -2,6 +2,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
+	#[error("serenity error")]
+	Serenity(#[from] serenity::Error),
 	#[error("unrecognized command")]
 	UnrecognizedCommand,
 	#[error("missing option")]

@@ -121,7 +121,7 @@ fn generate_dispatch(variants: &[VariantOpts]) -> TokenStream {
 
 			match command_name {
 				#(#match_arms,)*
-				_ => ::serein::Result::Err(::serein::error::Error::UnrecognizedCommand),
+				_ => ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
 			}
 		}
 	}
