@@ -71,12 +71,18 @@ fn generate_dispatch(fields: &[FieldOpts]) -> TokenStream {
 	};
 
 	quote! {
-		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
-			if int.data.options.len() != 1 {
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::Interaction) -> ::serein::Result<()> {
+			let cint = match &int {
+				::serenity::all::Interaction::Autocomplete(i) => i,
+				::serenity::all::Interaction::Command(i) => i,
+				_ => return ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
+			};
+
+			if cint.data.options.len() != 1 {
 				return ::serein::Result::Err(::serein::Error::UnrecognizedCommand);
 			}
 
-			let opt = &int.data.options[0];
+			let opt = &cint.data.options[0];
 
 			match &opt.value {
 				::serenity::all::CommandDataOptionValue::SubCommandGroup(sub_opts) => {

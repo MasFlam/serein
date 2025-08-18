@@ -63,12 +63,18 @@ fn generate_dispatch_from_enum(variants: &[VariantOpts]) -> TokenStream {
 	};
 
 	quote! {
-		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all:CommandInteraction) -> ::serein::Result<()> {
-			if int.data.options.len() != 1 {
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::Interaction) -> ::serein::Result<()> {
+			let cint = match &int {
+				::serenity::all::Interaction::Autocomplete(i) => i,
+				::serenity::all::Interaction::Command(i) => i,
+				_ => return ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
+			};
+
+			if cint.data.options.len() != 1 {
 				return ::serein::Result::Err(::serein::Error::UnrecognizedCommand);
 			}
 
-			let opt = &int.data.options[0];
+			let opt = &cint.data.options[0];
 
 			match opt.kind() {
 				::serenity::all::CommandOptionType::SubCommand | ::serenity::all::CommandOptionType::SubCommandGroup => {
@@ -122,8 +128,14 @@ fn generate_dispatch_from_struct(fields: &[FieldOpts]) -> TokenStream {
 	};
 
 	quote! {
-		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::CommandInteraction) -> ::serein::Result<()> {
-			let opts = int.data.options();
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::Interaction) -> ::serein::Result<()> {
+			let cint = match &int {
+				::serenity::all::Interaction::Autocomplete(i) => i,
+				::serenity::all::Interaction::Command(i) => i,
+				_ => return ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
+			};
+
+			let opts = cint.data.options();
 
 			let obj = Self {
 				#(#self_fields,)*

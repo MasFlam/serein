@@ -116,8 +116,14 @@ fn generate_dispatch(variants: &[VariantOpts]) -> TokenStream {
 	};
 
 	quote! {
-		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::CommandInteraction) -> ::serein::Result<()> {
-			let command_name = int.data.name.as_str();
+		async fn dispatch(ctx: ::serenity::all::Context, int: ::serenity::all::Interaction) -> ::serein::Result<()> {
+			let cint = match &int {
+				::serenity::all::Interaction::Autocomplete(i) => i,
+				::serenity::all::Interaction::Command(i) => i,
+				_ => return ::serein::Result::Err(::serein::Error::UnrecognizedCommand),
+			};
+
+			let command_name = cint.data.name.as_str();
 
 			match command_name {
 				#(#match_arms,)*
