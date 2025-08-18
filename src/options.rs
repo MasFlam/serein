@@ -5,7 +5,7 @@ use serenity::all::{
 
 use crate::error::{Error, Result};
 
-pub use serein_derive::{FloatChoice, IntChoice, StringChoice};
+pub use serein_macros::{FloatChoice, IntChoice, StringChoice};
 
 pub trait CommandOption: Sized {
 	fn try_from_resolved_value(value: ResolvedValue) -> Result<Self>;

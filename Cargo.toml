@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "./derive"]
+members = [".", "./macros"]
 resolver = "3"
 
 [workspace.package]
@@ -27,6 +27,6 @@ keywords.workspace = true
 
 [dependencies]
 async-trait = "0.1"
-serein-derive = { path = "./derive" }
+serein-macros = { path = "./macros" }
 serenity = { version = "0.12", default-features = false, features = ["builder", "client", "gateway", "rustls_backend"] }
 thiserror = "2"

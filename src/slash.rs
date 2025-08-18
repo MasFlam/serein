@@ -3,7 +3,7 @@ use serenity::all::{CommandInteraction, Context, CreateCommand, CreateCommandOpt
 
 use crate::error::Result;
 
-pub use serein_derive::{Command, CommandTree, SubCommand, SubSubCommand};
+pub use serein_macros::{Command, CommandTree, SubCommand, SubSubCommand};
 
 #[async_trait]
 pub trait CommandTree {

@@ -1032,13 +1032,13 @@ name = "serein"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "serein-derive",
+ "serein-macros",
  "serenity",
  "thiserror 2.0.12",
 ]
 
 [[package]]
-name = "serein-derive"
+name = "serein-macros"
 version = "0.1.0"
 dependencies = [
  "darling",
