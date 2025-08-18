@@ -13,13 +13,6 @@ pub enum ChoiceKind {
 }
 
 impl ChoiceKind {
-	pub fn choice_trait(&self) -> TokenStream {
-		match self {
-			Self::String => quote!(StringChoice),
-			Self::Int => quote!(IntChoice),
-			Self::Float => quote!(FloatChoice),
-		}
-	}
 	pub fn resolved_value_variant(&self) -> TokenStream {
 		match self {
 			Self::String => quote!(String),
@@ -136,13 +129,10 @@ pub fn derive(input: DeriveInput, kind: ChoiceKind) -> TokenStream {
 		Err(err) => return err,
 	};
 
-	let choice_trait = kind.choice_trait();
-
 	let ident = &input.ident;
 	let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
 
 	quote! {
-		impl #impl_generics ::serein::options::#choice_trait for #ident #type_generics #where_clause {}
 		impl #impl_generics ::serein::options::CommandOption for #ident #type_generics #where_clause {
 			#fn_from_resolved_value
 			#fn_create

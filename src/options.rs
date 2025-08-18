@@ -240,7 +240,3 @@ impl<T: CommandOption> CommandOption for Option<T> {
 		<T as CommandOption>::create(name, desc).required(false)
 	}
 }
-
-pub trait StringChoice: CommandOption {}
-pub trait IntChoice: CommandOption {}
-pub trait FloatChoice: CommandOption {}
