@@ -3,12 +3,12 @@ use syn::{DeriveInput, parse_macro_input};
 
 use crate::choices::ChoiceKind;
 
-pub(crate) mod choices;
-pub(crate) mod command;
-pub(crate) mod command_tree;
-pub(crate) mod common;
-pub(crate) mod subcommand;
-pub(crate) mod subsubcommand;
+mod choices;
+mod command;
+mod command_tree;
+mod common;
+mod subcommand;
+mod subsubcommand;
 
 #[proc_macro_derive(CommandTree, attributes(serein))]
 pub fn derive_command_tree(input: TokenStream) -> TokenStream {

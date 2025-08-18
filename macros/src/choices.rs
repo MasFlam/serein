@@ -13,17 +13,17 @@ pub enum ChoiceKind {
 }
 
 impl ChoiceKind {
-	pub fn resolved_value_variant(&self) -> TokenStream {
+	fn resolved_value_variant(&self) -> TokenStream {
 		match self {
 			Self::String => quote!(String),
 			Self::Int => quote!(Integer),
 			Self::Float => quote!(Number),
 		}
 	}
-	pub fn option_type_variant(&self) -> TokenStream {
+	fn option_type_variant(&self) -> TokenStream {
 		self.resolved_value_variant()
 	}
-	pub fn add_fn(&self) -> TokenStream {
+	fn add_fn(&self) -> TokenStream {
 		match self {
 			Self::String => quote!(add_string_choice_localized),
 			Self::Int => quote!(add_int_choice_localized),
@@ -35,20 +35,20 @@ impl ChoiceKind {
 #[derive(FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_unit))]
 struct RootOpts {
-	pub data: Data<VariantOpts, Ignored>,
+	data: Data<VariantOpts, Ignored>,
 }
 
 #[derive(FromVariant)]
 #[darling(attributes(serein), map = Self::after)]
 struct VariantOpts {
-	pub ident: Ident,
-	pub discriminant: Option<Expr>,
+	ident: Ident,
+	discriminant: Option<Expr>,
 
-	pub name: Option<String>,
-	pub value: Option<ChoiceValue>,
+	name: Option<String>,
+	value: Option<ChoiceValue>,
 
 	#[darling(default)]
-	pub names: HashMap<String, String>,
+	names: HashMap<String, String>,
 }
 
 impl VariantOpts {
@@ -65,13 +65,13 @@ impl VariantOpts {
 		self
 	}
 
-	pub fn name(&self) -> String {
+	fn name(&self) -> String {
 		self.name
 			.clone()
 			.unwrap_or_else(|| self.ident.to_string().to_lowercase())
 	}
 
-	pub fn value(&self, kind: ChoiceKind) -> Result<TokenStream, TokenStream> {
+	fn value(&self, kind: ChoiceKind) -> Result<TokenStream, TokenStream> {
 		let value = self.value.as_ref().map(|value| match value {
 			ChoiceValue::String(value) => quote!(#value),
 			ChoiceValue::Int(value) => quote!(#value),

@@ -12,26 +12,26 @@ use syn::{DeriveInput, Ident, Type};
 #[derive(Debug, Clone, FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype))]
 struct RootOpts {
-	pub data: Data<VariantOpts, Ignored>,
+	data: Data<VariantOpts, Ignored>,
 }
 
 #[derive(Debug, Clone, FromVariant)]
 #[darling(attributes(serein), map = Self::after)]
 struct VariantOpts {
-	pub ident: Ident,
-	pub fields: Fields<VariantFieldOpts>,
+	ident: Ident,
+	fields: Fields<VariantFieldOpts>,
 
-	pub name: Option<String>,
-	pub desc: String,
-
-	#[darling(default)]
-	pub names: HashMap<String, String>,
+	name: Option<String>,
+	desc: String,
 
 	#[darling(default)]
-	pub descs: HashMap<String, String>,
+	names: HashMap<String, String>,
 
 	#[darling(default)]
-	pub nsfw: Flag,
+	descs: HashMap<String, String>,
+
+	#[darling(default)]
+	nsfw: Flag,
 }
 
 impl VariantOpts {
@@ -71,7 +71,7 @@ impl VariantOpts {
 #[derive(Debug, Clone, FromField)]
 #[darling(attributes(serein))]
 struct VariantFieldOpts {
-	pub ty: Type,
+	ty: Type,
 }
 
 pub fn derive(input: DeriveInput) -> TokenStream {

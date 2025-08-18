@@ -8,7 +8,7 @@ use crate::common::{FieldOpts, VariantOpts, generate_sub_or_subsub_create_from_s
 #[derive(FromDeriveInput)]
 #[darling(attributes(serein), supports(enum_newtype, struct_named, struct_unit))]
 struct RootOpts {
-	pub data: Data<VariantOpts, FieldOpts>,
+	data: Data<VariantOpts, FieldOpts>,
 }
 
 pub fn derive(input: DeriveInput) -> TokenStream {
